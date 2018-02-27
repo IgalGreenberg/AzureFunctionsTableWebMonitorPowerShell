@@ -7,4 +7,4 @@ storageAccountName
 storageAccountKey
 tableName
 
-in Application settings
+in Application settings.
