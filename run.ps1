@@ -1,55 +1,57 @@
 #Require -Version 5.0
 # [sourcecode language='powershell' ]
 $url = [System.Configuration.ConfigurationManager]::AppSettings["url"]
-$storageAccountName = [System.Configuration.ConfigurationManager]::AppSettings["storageAccountName"]
-$storageAccountKey = [System.Configuration.ConfigurationManager]::AppSettings["storageAccountKey"]
-$tableName = [System.Configuration.ConfigurationManager]::AppSettings["tableName"]
+$SQLInstance = [System.Configuration.ConfigurationManager]::AppSettings["SQLInstance"]
+$SQLDatabase = [System.Configuration.ConfigurationManager]::AppSettings["SQLDatabase"]
+$SQLUsername = [System.Configuration.ConfigurationManager]::AppSettings["SQLUsername"]
+$SQLPassword = [System.Configuration.ConfigurationManager]::AppSettings["SQLPassword"]
 
-$ctx = New-AzureStorageContext $storageAccountName -StorageAccountKey $storageAccountKey
+$statusCode = 0
+$statusDescription = ''
+$IsSuccess = 1
+try {
+  $PageLoadStartTime = ((Get-Date -Format u) -replace "Z", "")
+  $PageLoadDuration = '00:00:00.000000'
+  $WebResponse = Invoke-WebRequest $url -TimeoutSec 30
+  $statusCode = $WebResponse.StatusCode
+  $statusDescription = $WebResponse.StatusDescription
+  $PageLoadDuration = (NEW-TIMESPAN -Start $PageLoadStartTime -End (Get-Date)).ToString()
+} catch [System.Net.WebException] {
+  Write-Output "generic catch";
+  $Response = $_.Exception;
+  Write-host "Exception caught: $Response";
+  $statusCode = ($_.Exception.Response.StatusCode.value__ ).ToString().Trim();
+  $statusDescription = ($_.Exception.Message).ToString().Trim();
+  $PageLoadDuration = (NEW-TIMESPAN -Start $PageLoadStartTime -End (Get-Date)).ToString()
+  $IsSuccess = 0
+} catch {
+  # handle all other exceptions
+  Write-Output "generic catch";
+  $e = $_.Exception
+  $msg = $e.Message
+  while ($e.InnerException) {
+    $e = $e.InnerException
+    $msg += "`n" + $e.Message
+  }
+  $statusDescription = $msg
+  $PageLoadDuration = (NEW-TIMESPAN -Start $PageLoadStartTime -End (Get-Date)).ToString()
+  $IsSuccess = 0;
+  Write-Output $IsSuccess;
+} finally {
+  $stmt="EXECUTE [dbo].[insertwebpageloadlog]" +
+  " @siteurl = '$url'" +
+  ",@PageLoadStartTime = '$PageLoadStartTime'" +
+  ",@PageLoadDuration = '$PageLoadDuration'" +
+  ",@IsSuccess = $IsSuccess" +
+  ",@StatusCode = $statusCode" +
+  ",@StatusDescription = '" + ($statusDescription -replace "'", "''" ) + "'";
 
-function GetOrCreateTable ($storageContext, $tableName) {
-    $table = Get-AzureStorageTable –Name $tableName -Context $ctx -ErrorAction Ignore
- 
-    if ($table -eq $null) {
-       $table = New-AzureStorageTable –Name $tableName -Context $ctx
-    }
- 
-    return $table
+  Write-Output $stmt;
+  Invoke-Sqlcmd `
+    -Query $stmt `
+    -ServerInstance $SQLInstance `
+    -Database $SQLDatabase `
+    -Username $SQLUsername `
+    -Password $SQLPassword `
+    -EncryptConnection
 }
-
- 
-$table = GetOrCreateTable $ctx $tableName
-
-# adds a new row to an azure table but checks at first if entry already exists
-function Add-Entity($table, $partitionKey, $rowKey, $values) {
-  # check if entry already exists
-  $existing = $table.CloudTable.Execute([Microsoft.WindowsAzure.Storage.Table.TableOperation]::Retrieve($partitionKey, $rowKey))
-  if($existing.HttpStatusCode -eq "200") { return; }
- 
-  $entity = New-Object -TypeName Microsoft.WindowsAzure.Storage.Table.DynamicTableEntity $partitionKey, $rowKey
- 
-  foreach($value in $values.GetEnumerator()) {
-    $entity.Properties.Add($value.Key, $value.Value);
-  }
- 
-  $result = $table.CloudTable.Execute([Microsoft.WindowsAzure.Storage.Table.TableOperation]::Insert($entity))
-}
-# usage sample:
-#$values = @{"MyKey" = "MyValue"; "MySecondKey" = "MySecondValue"; "CurrentDate" = (get-date)}
-#Add-Entity $table "MyPartitionKey" "MyRowKey" $values
-try
-{ 
-    $s = [int][double]::Parse((Get-Date -UFormat %s)) 
-    $m = Measure-Command {$res = Invoke-WebRequest $url -UseBasicParsing}
-}
-catch { break; }
-
-$values = @{ "Url" = $url;
-    "StartTime"=$s;
-    "DurationSeconds"=$m.TotalSeconds;
-    "StatusCode"=$res.StatusCode;
-    "StatusDescription"=$res.StatusDescription;
-    "RawContentLength"=$res.RawContentLength
-}
-
-Add-Entity $table $tableName $s $values
