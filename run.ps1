@@ -1,4 +1,3 @@
-#Require -Version 5.0
 # [sourcecode language='powershell' ]
 $url = [System.Configuration.ConfigurationManager]::AppSettings["url"]
 $SQLInstance = [System.Configuration.ConfigurationManager]::AppSettings["SQLInstance"]
@@ -9,15 +8,15 @@ $SQLPassword = [System.Configuration.ConfigurationManager]::AppSettings["SQLPass
 $statusCode = 0
 $statusDescription = ''
 $IsSuccess = 1
+$PageLoadStartTime = ((Get-Date -Format u) -replace "Z", "")
+$PageLoadDuration = '00:00:00.000000'
+
 try {
-  $PageLoadStartTime = ((Get-Date -Format u) -replace "Z", "")
-  $PageLoadDuration = '00:00:00.000000'
-  $WebResponse = Invoke-WebRequest $url -TimeoutSec 30
+  $PageLoadDuration = (Measure-Command {$WebResponse = Invoke-WebRequest $url -UseBasicParsing}).ToString()
   $statusCode = $WebResponse.StatusCode
   $statusDescription = $WebResponse.StatusDescription
-  $PageLoadDuration = (NEW-TIMESPAN -Start $PageLoadStartTime -End (Get-Date)).ToString()
 } catch [System.Net.WebException] {
-  Write-Output "generic catch";
+  Write-Output "System.Net.WebException catch";
   $Response = $_.Exception;
   Write-host "Exception caught: $Response";
   $statusCode = ($_.Exception.Response.StatusCode.value__ ).ToString().Trim();
@@ -45,13 +44,30 @@ try {
   ",@IsSuccess = $IsSuccess" +
   ",@StatusCode = $statusCode" +
   ",@StatusDescription = '" + ($statusDescription -replace "'", "''" ) + "'";
-
   Write-Output $stmt;
-  Invoke-Sqlcmd `
-    -Query $stmt `
-    -ServerInstance $SQLInstance `
-    -Database $SQLDatabase `
-    -Username $SQLUsername `
-    -Password $SQLPassword `
-    -EncryptConnection
+  try {
+    $SqlConnection = New-Object System.Data.SqlClient.SqlConnection
+    $SqlConnection.ConnectionString = "Server = $SQLInstance ; Database = $SQLDatabase ; User ID = $SQLUsername ; Password = $SQLPassword ;"  
+    $SqlConnection.Open()
+    $sqlCommand = new-object System.Data.SqlClient.SqlCommand
+    $sqlCommand.CommandTimeout = 120
+    $sqlCommand.Connection = $sqlConnection
+    $sqlCommand.CommandText= $stmt
+    $text = $stmt.Substring(0, 50)
+    Write-Output "Executing SQL => $text..."
+    $result = $sqlCommand.ExecuteNonQuery()
+    $sqlConnection.Close()
+  } catch {
+    Write-Output "generic catch";
+    $e = $_.Exception
+    $msg = $e.Message
+    while ($e.InnerException) {
+      $e = $e.InnerException
+      $msg += "`n" + $e.Message
+    }
+    $statusDescription = $msg
+    $PageLoadDuration = (NEW-TIMESPAN -Start $PageLoadStartTime -End (Get-Date)).ToString()
+    Write-Output $statusDescription;
+    Write-Output $PageLoadDuration;
+  }
 }
