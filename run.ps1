@@ -47,7 +47,7 @@ try {
   Write-Output $stmt;
   try {
     $SqlConnection = New-Object System.Data.SqlClient.SqlConnection
-    $SqlConnection.ConnectionString = "Server = $SQLInstance ; Database = $SQLDatabase ; User ID = $SQLUsername ; Password = $SQLPassword ;"  
+    $SqlConnection.ConnectionString = "Server = $SQLInstance ; Database = $SQLDatabase ; User ID = $SQLUsername ; Password = $SQLPassword ;Encrypt = 'true'"  
     $SqlConnection.Open()
     $sqlCommand = new-object System.Data.SqlClient.SqlCommand
     $sqlCommand.CommandTimeout = 120
