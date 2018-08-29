@@ -59,7 +59,7 @@ Setup the these variables for the azure function application settings:
 | SQLUsername      | Azure SQL Username             |
 | SQLPassword      | Azure SQL Password             |
 
-Deploy the code from run.ps1 to the function body and notice some 
+Deploy the code from run.ps1 to the function body.
 
 ## The result
 One should be able to see the pefromance load times of their website in Azure SQL:
