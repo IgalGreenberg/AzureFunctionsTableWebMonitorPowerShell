@@ -1,4 +1,4 @@
-# AzureFunctionsTableWebMonitorPowerShell
+# AzureFunctionsWebMonitor
 A little script that runs in Azure Functions and populates an Azure SQL table with page load timings of a given web page.
 
 ## Create an Azure SQL database
