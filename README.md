@@ -1,16 +1,9 @@
 # AzureFunctionsTableWebMonitorPowerShell
 A little script that runs in Azure Functions and populates an Azure SQL table with page load timings of a given web page.
 
-##Create an Azure SQL database
+## Create an Azure SQL database
 Create an Azure SQL Database and create the following:
 ```TSQL
-/****** Object:  Table [dbo].[webpageloadlog]    Script Date: 29/08/2018 12:10:37 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
 CREATE TABLE [dbo].[webpageloadlog](
 	[logid] [int] IDENTITY(0,1) NOT NULL,
 	[siteurl] [nvarchar](1000) NOT NULL,
@@ -23,13 +16,11 @@ CREATE TABLE [dbo].[webpageloadlog](
 ) ON [PRIMARY]
 GO
 
-/****** Object:  StoredProcedure [dbo].[insertwebpageloadlog]    Script Date: 29/08/2018 12:11:08 ******/
 SET ANSI_NULLS ON
 GO
 
 SET QUOTED_IDENTIFIER ON
 GO
-
 -- =============================================
 -- Author:      Igal Greenberg
 -- Create Date: 26 Aug 2018
@@ -49,28 +40,15 @@ AS
 BEGIN
 SET NOCOUNT ON
 	INSERT INTO [dbo].[webpageloadlog]
-	([siteurl]
-	,[PageLoadStartTime]
-	,[PageLoadDuration]
-	,[IsSuccess]
-	,[StatusCode]
-	,[StatusDescription]
-	,[RawContentLength])
+	([siteurl],[PageLoadStartTime],[PageLoadDuration],[IsSuccess]
+	,[StatusCode],[StatusDescription],[RawContentLength])
 	VALUES
-	(@siteurl
-	,@PageLoadStartTime
-	,@PageLoadDuration
-	,@IsSuccess
-	,@StatusCode
-	,@StatusDescription
-	,@RawContentLength)
+	(@siteurl,@PageLoadStartTime,@PageLoadDuration,@IsSuccess
+	,@StatusCode,@StatusDescription,@RawContentLength)
 END
 GO
 ```
-
-
-##Create an Azure Function using PowerShell.
-
+## Create an Azure Function using PowerShell.
 Setup the these variables for the azure function application settings:
 
 | APP SETTING NAME | Description                   |
@@ -82,3 +60,7 @@ Setup the these variables for the azure function application settings:
 | SQLPassword      | Azure SQL Password             |
 
 Deploy the code from run.ps1 to the function body and notice some 
+
+## The result
+One should be able to see the pefromance load times of their website in Azure SQL:
+![Website Load Performance](https://github.com/IgalGreenberg/AzureFunctionsTableWebMonitorPowerShell/blob/master/WebsiteLoadPerformanceData.PNG?raw=true)
