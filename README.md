@@ -1,10 +1,84 @@
 # AzureFunctionsTableWebMonitorPowerShell
-A little script that runs in Azure Functions and populates an Azure table with page load timings of a given web page.
+A little script that runs in Azure Functions and populates an Azure SQL table with page load timings of a given web page.
 
-Create a group, storage account and table.  Setup the variables:
-url
-storageAccountName
-storageAccountKey
-tableName
+##Create an Azure SQL database
+Create an Azure SQL Database and create the following:
+```TSQL
+/****** Object:  Table [dbo].[webpageloadlog]    Script Date: 29/08/2018 12:10:37 ******/
+SET ANSI_NULLS ON
+GO
 
-in Application settings.
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[webpageloadlog](
+	[logid] [int] IDENTITY(0,1) NOT NULL,
+	[siteurl] [nvarchar](1000) NOT NULL,
+	[PageLoadStartTime] [datetime] NOT NULL,
+	[PageLoadDuration] [time](7) NOT NULL,
+	[IsSuccess] [bit] NOT NULL,
+	[StatusCode] [int] NULL,
+	[StatusDescription] [nvarchar](1000) NULL,
+	[RawContentLength] [int] NULL
+) ON [PRIMARY]
+GO
+
+/****** Object:  StoredProcedure [dbo].[insertwebpageloadlog]    Script Date: 29/08/2018 12:11:08 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+-- =============================================
+-- Author:      Igal Greenberg
+-- Create Date: 26 Aug 2018
+-- Description: Insert a web log
+-- =============================================
+CREATE PROCEDURE [dbo].[insertwebpageloadlog]
+(
+	@siteurl nvarchar(1000)
+	,@PageLoadStartTime datetime
+	,@PageLoadDuration time(7)
+	,@IsSuccess bit
+	,@StatusCode int
+	,@StatusDescription nvarchar(1000)
+	,@RawContentLength int = 0
+)
+AS
+BEGIN
+SET NOCOUNT ON
+	INSERT INTO [dbo].[webpageloadlog]
+	([siteurl]
+	,[PageLoadStartTime]
+	,[PageLoadDuration]
+	,[IsSuccess]
+	,[StatusCode]
+	,[StatusDescription]
+	,[RawContentLength])
+	VALUES
+	(@siteurl
+	,@PageLoadStartTime
+	,@PageLoadDuration
+	,@IsSuccess
+	,@StatusCode
+	,@StatusDescription
+	,@RawContentLength)
+END
+GO
+```
+
+
+##Create an Azure Function using PowerShell.
+
+Setup the these variables for the azure function application settings:
+
+| APP SETTING NAME | Description                   |
+| :--------------- |:------------------------------:| 
+| url              | The site one wishes to monitor | 
+| SQLInstance      | Azure SQL Instance             |
+| SQLDatabase      | Azure SQL Database name        |
+| SQLUsername      | Azure SQL Username             |
+| SQLPassword      | Azure SQL Password             |
+
+Deploy the code from run.ps1 to the function body and notice some 
